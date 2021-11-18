@@ -30,12 +30,12 @@ class Location {
   char Time[NAME];
   ui Bold:1;
   Location(int id, char *city, double offset, ui bold):Id(id), localOffset(offset), Bold(bold) {  strcpy(City, city); };
-  void CreateTimeString(double offset);
+  void CreateTimeString();
 
   Location() { };
  ~Location() { };
 };
-
+vector<Location> locations;
 
 // function declarations
 int ReadLocationData(char city_name[], double dst);
@@ -43,23 +43,31 @@ int ReadConfigFile();
 char* addspacestoline(char *line);
 void Sleep(ul sleepMs) { sleep(sleepMs/1000); };
 
-void Location::CreateTimeString(double offset) 
+void Location::CreateTimeString() 
 {
   time_t rawtime;
   struct tm * timeinfo;
   char buffer[NAME];
+  double mylocalOffset=locations[0].localOffset;
 
   time (&rawtime);
   timeinfo = localtime (&rawtime);
   
    // remake time structure according to timezone, for locations above first
-   if (Id && localOffset!=offset) {
-    int difference=offset-localOffset;
-    if (offset>0)
-     timeinfo->tm_hour-=difference;
-    else
-     timeinfo->tm_hour+=difference;
-     
+   if (Id && localOffset!=mylocalOffset) {
+    int offsetinteger=mylocalOffset-localOffset;
+    offsetinteger=(offsetinteger<0) ? offsetinteger*-1 : offsetinteger;
+    double offsetfraction=(localOffset - ((int)localOffset))*60;
+    offsetfraction=(offsetfraction<0) ? offsetfraction*-1 : offsetfraction;
+    
+    if ((mylocalOffset>0 && localOffset>0) || (mylocalOffset<0 && localOffset>0)) {
+     timeinfo->tm_hour+=offsetinteger;
+     timeinfo->tm_min+=offsetfraction;
+    }
+    if ((mylocalOffset>0 && localOffset<0) || (mylocalOffset<0 && localOffset<0)) {
+     timeinfo->tm_hour-=offsetinteger;
+     timeinfo->tm_min-=offsetfraction;
+    }
     mktime(timeinfo);   
    }
 
@@ -79,13 +87,12 @@ void Location::CreateTimeString(double offset)
  strcpy(Time, buffer);
 
 }
-vector<Location> locations;
 
 int main()
 {
    struct passwd *pw = getpwuid(getuid());
    sprintf(datafilepath, "%s/astro.dat", pw->pw_dir);
-   sprintf(cfgfilepath, "%s/clock.cfg", pw->pw_dir);
+   sprintf(cfgfilepath, "%s/.clock", pw->pw_dir);
    
    // initialize ncurses
    win1=initscr();
@@ -128,7 +135,7 @@ int main()
     printw("  terminal world clock %.2lf  <space> toggles 12/24hour <enter> toggles seconds", version);
         
     for (x=1, y=2, row=i1=0;i1<locations.size()-1;i1++) {
-     locations[i1].CreateTimeString(locations[0].localOffset);
+     locations[i1].CreateTimeString();
      sprintf(line, "%s %s", locations[i1].City, locations[i1].Time);
      line[25]='\0';
      switch (row) {
@@ -162,7 +169,7 @@ int main()
 }
 
 // search for city data and load to vector
-int ReadLocationData(char city_name[], double dst) // 1 read to my location
+int ReadLocationData(char city_name[], double dst) // dst double in case it's ever needed
 {
   ifstream datafile;
   char country[MAXNAME], city[MAXNAME], region[MAXNAME];
