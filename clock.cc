@@ -24,7 +24,6 @@ char datafilepath[500], cfgfilepath[500];
 WINDOW *win1=newwin(80, 24, 1, 1);
 class Location {
  public:
-  int Id;
   char City[NAME];
   double localOffset;
   char Time[NAME];
@@ -59,7 +58,7 @@ void Location::CreateTimeString()
     offsetinteger=(offsetinteger<0) ? offsetinteger*-1 : offsetinteger;
     offsetfraction=(offsetfraction<0) ? offsetfraction*-1 : offsetfraction;
     enum cases { ADD=0, SUBSTRACT };
-    int arithmeticaction;
+    ui arithmeticaction;
     
     // cases of mylocalOffset versus localOffset
     if (mylocalOffset>localOffset) {
@@ -86,7 +85,7 @@ void Location::CreateTimeString()
     mktime(timeinfo);   
    }
    
-  char buffer[NAME];
+   char buffer[NAME];
    if (secondson) {
     if (clock24)
      strftime (buffer, NAME, "%H:%M:%S", timeinfo);
@@ -106,6 +105,7 @@ void Location::CreateTimeString()
 
 int main()
 {
+   // construct filepaths
    struct passwd *pw = getpwuid(getuid());
    sprintf(datafilepath, "%s/astro.dat", pw->pw_dir);
    sprintf(cfgfilepath, "%s/.clock", pw->pw_dir);
@@ -117,12 +117,14 @@ int main()
    keypad(win1, TRUE);
    curs_set(0);
    int i=INITIALIZE, i1;
+   // read .clock
    if ((i1=ReadConfigFile())==0)
     i=ESCAPE;
    char line[MAXNAME];
    int x, y, row;
    
-   wtimeout(win1, 1000);
+   wtimeout(win1, 1000); // block getch() for 1000ms
+   // main loop
    while (i!=ESCAPE) {
 
     i=(i==INITIALIZE) ? 0 : getch(); // skip getch() at first display
@@ -131,6 +133,7 @@ int main()
     if (i==TOGGLESECONDS) // toggles seconds
      secondson=(secondson) ? FALSE : TRUE;
     clear();
+    // draw ascii frame & print information
     for (x=0;x<80;x++) {
      move(1, x);
      addch('-');
@@ -149,11 +152,12 @@ int main()
     }       
     move(0, 0);
     printw("  terminal world clock %.2lf  <space> toggles 12/24hour <enter> toggles seconds", version);
-        
+    
+    // construct time string for entries and print
     for (x=1, y=2, row=i1=0;i1<locations.size()-1;i1++) {
      locations[i1].CreateTimeString();
      sprintf(line, "%s %s", locations[i1].City, locations[i1].Time);
-     line[25]='\0';
+     line[NAME]='\0';
      switch (row) {
       case 0:
        move(y, x+1);
@@ -198,12 +202,14 @@ int ReadLocationData(char city_name[], double dst) // dst double in case it's ev
     city_name[strlen(city_name)-1]='\0';
     tbold=1;
    }
+   // read entries
     while (datafile) {
      datafile >> country >> city >> lat >> lng >> region >> offset;
      if (!strcmp(city, city_name))
       break;
     }
     
+    // end of file or location entries exceed screen limit
     if (datafile.eof() || locations.size()>MAXLOCATIONS)
      return -1;
     if (offset<0)
@@ -229,6 +235,7 @@ int ReadConfigFile()
    locations.clear();
    cfgfile.open(cfgfilepath);
    
+    // read .clock
     while (cfgfile) {
      cfgfile >> tcity >> dst;
      if ((ReadLocationData(tcity, dst)==0))
