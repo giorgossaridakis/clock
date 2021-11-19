@@ -29,7 +29,7 @@ class Location {
   double localOffset;
   char Time[NAME];
   ui Bold:1;
-  Location(int id, char *city, double offset, ui bold):Id(id), localOffset(offset), Bold(bold) {  strcpy(City, city); };
+  Location(char *city, double offset, ui bold): localOffset(offset), Bold(bold) {  strcpy(City, city); };
   void CreateTimeString();
 
   Location() { };
@@ -53,7 +53,7 @@ void Location::CreateTimeString()
   timeinfo = localtime (&rawtime);
   
    // remake time structure according to timezone, for locations above first
-   if (Id && localOffset!=mylocalOffset) {
+   if (localOffset!=mylocalOffset) {
     int offsetinteger=mylocalOffset-localOffset;
     double offsetfraction=(localOffset - ((int)localOffset))*60;
     offsetinteger=(offsetinteger<0) ? offsetinteger*-1 : offsetinteger;
@@ -208,7 +208,9 @@ int ReadLocationData(char city_name[], double dst) // dst double in case it's ev
      return -1;
     if (offset<0)
      dst*=-1;
-    Location tlocation(locations.size(), city, offset-dst, tbold);
+    if (!locations.size())
+     dst=0; // zero daylight saving for location reference
+    Location tlocation(city, offset-dst, tbold);
     locations.push_back(tlocation);
 
     datafile.close();
