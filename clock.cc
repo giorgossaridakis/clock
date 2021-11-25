@@ -2,6 +2,7 @@
 #include <ncurses.h>
 #include <string.h>
 #include <unistd.h>
+#include <math.h>
 #include <pwd.h>
 #include <fstream>
 #include <ctime>
@@ -53,25 +54,17 @@ void Location::CreateTimeString()
   
    // remake time structure according to timezone, for locations above first
    if (localOffset!=mylocalOffset) {
-    int offsetinteger=mylocalOffset-localOffset;
-    double offsetfraction=(localOffset - ((int)localOffset))*60;
-    offsetinteger=(offsetinteger<0) ? offsetinteger*-1 : offsetinteger;
-    offsetfraction=(offsetfraction<0) ? offsetfraction*-1 : offsetfraction;
-    enum cases { ADD=0, SUBSTRACT };
-    ui arithmeticaction;
+    int offsetinteger=abs(mylocalOffset-localOffset);
+    double offsetfraction=abs((localOffset - ((int)localOffset))*60);
     
     // cases of mylocalOffset versus localOffset
-    if (mylocalOffset>localOffset)
-     arithmeticaction=SUBSTRACT;
-    if (localOffset>mylocalOffset)
-     arithmeticaction=ADD; 
-    if (arithmeticaction==ADD) {
-     timeinfo->tm_hour+=offsetinteger;
-     timeinfo->tm_min+=offsetfraction;
-    }
-    else {
+    if (mylocalOffset>localOffset) {
      timeinfo->tm_hour-=offsetinteger;
      timeinfo->tm_min-=offsetfraction;
+    }
+    if (localOffset>mylocalOffset) {
+     timeinfo->tm_hour+=offsetinteger;
+     timeinfo->tm_min+=offsetfraction;
     }
 
     mktime(timeinfo);   
