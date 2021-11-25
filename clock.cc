@@ -62,12 +62,16 @@ void Location::CreateTimeString()
     
     // cases of mylocalOffset versus localOffset
     if (mylocalOffset>localOffset) {
+     if (mylocalOffset==0) // localOffset<0
+      arithmeticaction=SUBSTRACT;
      if ((mylocalOffset>0 && localOffset>0) || (mylocalOffset>0 && localOffset<0))
       arithmeticaction=SUBSTRACT;
      if ((mylocalOffset<0 && localOffset<0) || (mylocalOffset<0 && localOffset>0))
       arithmeticaction=ADD;
     }
     if (localOffset>mylocalOffset) {
+     if (mylocalOffset==0) // localOffset>0
+      arithmeticaction=ADD;
      if ((mylocalOffset>0 && localOffset>0) || (mylocalOffset>0 && localOffset<0))
       arithmeticaction=ADD;
      if ((mylocalOffset<0 && localOffset<0) || (mylocalOffset<0 && localOffset>0))
