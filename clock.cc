@@ -17,7 +17,7 @@ typedef const int ci;
 typedef const double cd;
 
 // global constants & variables
-ci MAXNAME=100, NAME=25, MAXLOCATIONS=63, INITIALIZE=1000;
+ci MAXNAME=100, NAME=26, MAXLOCATIONS=63, INITIALIZE=1000;
 ci TOGGLE24HOUR=32, ESCAPE=27, TOGGLESECONDS='\n';
 cd version=1.0;
 bool clock24=TRUE, secondson=TRUE;
