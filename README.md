@@ -22,6 +22,7 @@ if a city entry is ended with *, for example NewYorkCity* then it will be displa
 
 
 keys
+ 
 space toggles 12/24 hour mode 
 enter toggles seconds on/off
 ESC will exit clock
@@ -35,6 +36,7 @@ it needs to locate a .wclock file in your root directory with format:
 ..up to 567 entries are allowed, this can easily change though
   
 keys 
+ 
 space toggles 12/24 hour mode 
 enter toggles seconds on/off
 pgup, pgdown move through city pages
