@@ -20,12 +20,13 @@ the first entry in .clock must be your current location or point of reference
 daylightsaving according to location is the relation between your location reference dst and the city in question. example: if your reference (first .clock entry) is now in dst +1 and the city in question is not in daylight saving (like a US city), then the city must be followed by a -1. if your reference is not in dst and the city is, the city must be followed with a 1.
 if a city entry is ended with *, for example NewYorkCity* then it will be displayed in bold
 
-
-keys
+keys 
  
 space toggles 12/24 hour mode 
 enter toggles seconds on/off
 ESC will exit clock
+ 
+ 
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------
 wclock.c is a color terminal world clock
 
