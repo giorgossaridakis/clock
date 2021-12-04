@@ -6,10 +6,13 @@ clock.cc is a simple world clock for the terminal
 it needs to locate two files in your home directory:
 
 astro.dat with format
+
 country  city   longtitude latitude        region
+
 Tanzania Babati -4.2166667   35.75   Africa/DaresSalaam 3
 
 and .clock with format
+
 <city> <daylightsaving correction, according to your location>
 Amsterdam 0
 CapeTown 0 
