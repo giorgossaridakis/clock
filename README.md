@@ -1,7 +1,7 @@
 # clock
 terminal world clock
 
-clock is a simple world clock for the terminal
+clock.cc is a simple world clock for the terminal
 
 it needs to locate two files in your home directory:
 
@@ -25,4 +25,19 @@ keys
 ----
 space toggles 12/24 hour mode 
 enter toggles seconds on/off
+ESC will exit clock
+------------------------------------------------------------------------------------------------------------------------------------------------------------------
+wclock.c is a color terminal world clock
+
+it needs to locate a .wclock file in your root directory with format:
+ city_name GMT_offset DST_correction_in_relation_to_your_location(first entry)
+ NewYorkCity -4 0
+  
+..up to 567 entries are allowed, this can easily change though
+  
+keys 
+----
+space toggles 12/24 hour mode 
+enter toggles seconds on/off
+pgup, pgdown move through city pages
 ESC will exit clock
