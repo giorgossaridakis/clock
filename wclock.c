@@ -11,7 +11,7 @@
 #include <pwd.h>
 
 // constants
-#define version 2.0
+#define version 3.0
 #define MAXPAGEENTRIES 63
 #define MAXLINE 80
 #define NAME 25
@@ -35,7 +35,7 @@ typedef struct {
   char Time[NAME]; } Location;
 Location locations[MAXPAGEENTRIES];
 
-ui secondson=1, clock24=1;
+ui secondson=1, clock24=1, explicitmylocaloffset=0;
 double mylocalOffset;
 int alllocationsnumber=0, currentpage=1;
 enum { RED=1, GREEN=2, YELLOW, BLUE, MAGENTA, CYAN, WHITE };
@@ -74,7 +74,6 @@ int main(int argc, char *argv[])
    alllocationsnumber/=3;
 
    loadpage(filename, &locationsnumber);
-   mylocalOffset=locations[0].localOffset;
    wtimeout(win1, 1000); // block getch() for 1000ms
 
     while (c!=ESCAPE) {
@@ -180,13 +179,22 @@ int readconfigfile(char *filename)
      locations[locationsnumber].Bold=1;
     }
     else
-     locations[locationsnumber].Bold=0;
+     locations[locationsnumber].Bold=0;  
     locations[locationsnumber].localOffset=atof(tlines[1]);
+    if (locations[locationsnumber].City[strlen(locations[locationsnumber].City)-1]=='&' && !explicitmylocaloffset) {
+     locations[locationsnumber].City[strlen(locations[locationsnumber].City)-1]='\0';
+     mylocalOffset=locations[locationsnumber].localOffset;
+     explicitmylocaloffset=1;
+    }
     locations[locationsnumber].dstCorrection=abs(atof(tlines[2]));
-    if (locationsnumber==0)
-     locations[locationsnumber].dstCorrection=0;
-    locations[locationsnumber].localOffset-=locations[locationsnumber].dstCorrection;
    }
+   
+   if (explicitmylocaloffset==0)
+    mylocalOffset=locations[0].localOffset;
+   for (i=0;i<locationsnumber;i++)
+    if (mylocalOffset!=locations[i].localOffset)
+     locations[i].localOffset-=locations[i].dstCorrection;
+   
 
  return locationsnumber;
 }
