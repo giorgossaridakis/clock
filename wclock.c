@@ -1,3 +1,5 @@
+// wclock.c, a world clock for the ncurses terminal
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
@@ -5,11 +7,10 @@
 #include <fcntl.h>
 #include <string.h>
 #include <ncurses.h>
-#include <signal.h>
 #include <unistd.h>
 #include <pwd.h>
-#include "cursesscreen.c"
 
+// constants
 #define version 2.0
 #define MAXPAGEENTRIES 63
 #define MAXLINE 80
@@ -20,6 +21,10 @@
 #define OTHERKEY 0
 #define PGUP 339
 #define PGDOWN 338
+#define INITIALIZE 1000
+
+// global variables and structures
+WINDOW *win1;
 
 typedef unsigned int ui;
 typedef struct {
@@ -33,6 +38,7 @@ Location locations[MAXPAGEENTRIES];
 ui secondson=1, clock24=1;
 double mylocalOffset;
 int alllocationsnumber=0, currentpage=1;
+enum { RED=1, GREEN=2, YELLOW, BLUE, MAGENTA, CYAN, WHITE };
 
 // function declarations
 void loadpage(char *filename, int *locationsnumber);
@@ -45,11 +51,16 @@ char* addspacestoline(char *line);
 unsigned int isseparationchar(char t);
 unsigned int isfdopen(int fd);
 char *setupfilepathtoexecutable(const char *argument, const char *file);
+int numberofzeroes(int num);
 void drawscreen();
+int initscreen();
+void endscreen();
+void textcolor(int choice);
+void gotoxy(int x, int y);
 
 int main(int argc, char *argv[])
 {
-  int i, i1, x, y, row, c, locationsnumber;
+  int i, i1, x, y, row, c=INITIALIZE, locationsnumber;
   char filename[MAXLINE], line[MAXLINE];
   struct passwd *pw = getpwuid(getuid());
   sprintf(filename, "%s/.wclock", pw->pw_dir);
@@ -68,7 +79,7 @@ int main(int argc, char *argv[])
 
     while (c!=ESCAPE) {
 
-      c=getch();
+      c=(c==INITIALIZE) ? 0 : getch(); // skip 1 second wait on entry
       switch(c) {
        case ENTER:
 	    secondson=(secondson) ? 0 : 1;
@@ -77,7 +88,7 @@ int main(int argc, char *argv[])
 	    clock24=(clock24) ? 0 : 1;
        break;
 	   case PGUP:
-	   if (currentpage==1 || currentpage==9)
+	   if (currentpage==1 || currentpage==9999)
 	    break;
 	    --currentpage;
 	    loadpage(filename, &locationsnumber);
@@ -114,11 +125,15 @@ int main(int argc, char *argv[])
        textcolor(YELLOW);
       if (mylocalOffset==locations[i1].localOffset)
        textcolor(CYAN);
-      if (locations[i1].Bold)
-       textcolor(RED);
-//        attron(A_BOLD);
+      if (locations[i1].Bold) {
+       if (has_colors())
+        textcolor(RED);
+       else
+        attron(A_BOLD);
+      }
       printw("%s", addspacestoline(line));
-//       attroff(A_BOLD);
+      if (!has_colors())
+       attroff(A_BOLD);
       x+=27;
       if (++row>2) {
        row=0;
@@ -132,6 +147,8 @@ int main(int argc, char *argv[])
 
  return 0;
 }
+
+// wclock specific routines
 
 // load-reload page
 void loadpage(char *filename, int *locationsnumber)
@@ -227,6 +244,7 @@ int assignvaluestoarray(int fd, char array[MAXPAGEENTRIES*3][MAXLINE], int entri
  return actualentries;
 }
 
+// use mktime to create time string for locations
 void createtimestring(int entryid)
 {
   time_t rawtime;
@@ -271,6 +289,8 @@ void createtimestring(int entryid)
 
 }
 
+// library routines
+
 // add spaces to the beggining of string
 char* addspacestoline(char *line)
 {
@@ -309,6 +329,18 @@ unsigned int isfdopen(int fd)
  return 1;
 }
 
+// return number of decimals in an integer
+int numberofzeroes(int num)
+ {
+   char buffer[NAME];
+   
+    sprintf(buffer, "%d", num);
+    
+return strlen(buffer)-1;
+}
+
+// ncurses & screen related
+
 // draw screen
 void drawscreen()
 {
@@ -341,7 +373,8 @@ void drawscreen()
      time (&mytime);
      timeinfo = localtime (&mytime);
      strftime(line, MAXLINE, "%A %d %B %Y", timeinfo);
-     gotoxy(4, 24);
+     x=5-numberofzeroes(totalpages);
+     gotoxy(x, 24);
      textcolor(MAGENTA);
      printw("%s cities: %d page: %d/%d <pgup> <pgdown> <esc> quit",  line, alllocationsnumber, currentpage, totalpages);
      gotoxy(5, 1);
@@ -349,3 +382,52 @@ void drawscreen()
      printw("World Clock %.2lf <space> toggle 12/24hours <enter> toggle seconds on/off", version);
      refresh();
 }
+
+// initialize ncurses screen
+int initscreen()
+{
+  win1=initscr();
+  noecho();
+  cbreak();
+  keypad(win1, TRUE);
+  curs_set(0);
+  start_color();
+ 
+  // basic pairs
+  init_pair(RED, COLOR_RED, COLOR_BLACK);
+  init_pair(GREEN, COLOR_GREEN, COLOR_BLACK);
+  init_pair(YELLOW, COLOR_YELLOW, COLOR_BLACK);
+  init_pair(BLUE, COLOR_BLUE, COLOR_BLACK);
+  init_pair(MAGENTA, COLOR_MAGENTA, COLOR_BLACK);
+  init_pair(CYAN, COLOR_CYAN, COLOR_BLACK);
+  init_pair(WHITE, COLOR_WHITE, COLOR_BLACK);
+  
+ return 0;
+}
+
+// close screen
+void endscreen()
+{
+  delwin(win1);
+  endwin();
+  curs_set(1);
+  refresh();
+}
+
+// change color
+void textcolor(int choice)
+{
+  int color;  
+  
+  if (!choice)
+   color=58;
+  else
+   color=choice;
+   attron(COLOR_PAIR(color));
+}
+
+void gotoxy(int x, int y)
+{
+  move(y-1, x-1);
+}
+
