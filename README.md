@@ -1,7 +1,7 @@
 # clock
 terminal world clock
 
-wclock is a world clock for the ncurses terminal.
+wclock.c is a world clock for the ncurses terminal.
 
 it needs to locate a .wclock file in your root directory with format:
 
@@ -9,14 +9,11 @@ it needs to locate a .wclock file in your root directory with format:
  
  NewYorkCity -4 0
   
-..up to 567 entries are allowed, this can easily change though
+build with cc wclock wclock.c -lncurses
   
 keys 
  
 space toggles 12/24 hour mode 
-
 enter toggles seconds on/off
-
 pgup, pgdown move through city pages
-
-ESC will exit clock
+ESC will exit wclock
