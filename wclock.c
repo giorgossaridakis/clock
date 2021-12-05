@@ -60,7 +60,7 @@ void gotoxy(int x, int y);
 
 int main(int argc, char *argv[])
 {
-  int i, i1, x, y, row, c=INITIALIZE, locationsnumber;
+  int i, i1, x, y, row, c=INITIALIZE, locationsnumber=MAXPAGEENTRIES;
   char filename[MAXLINE], line[MAXLINE];
   struct passwd *pw = getpwuid(getuid());
   sprintf(filename, "%s/.wclock", pw->pw_dir);
@@ -72,13 +72,25 @@ int main(int argc, char *argv[])
    while ((readfileentry(i1, line)))
     ++alllocationsnumber;
    alllocationsnumber/=3;
-
-   loadpage(filename, &locationsnumber);
+   
    wtimeout(win1, 1000); // block getch() for 1000ms
 
     while (c!=ESCAPE) {
 
-      c=(c==INITIALIZE) ? 0 : getch(); // skip 1 second wait on entry
+      c=(c==INITIALIZE) ? INITIALIZE+1 : getch(); // skip 1 second wait on entry
+      // read all entries, determine mylocalOffset
+      if (c==INITIALIZE+1) {
+       while (locationsnumber==MAXPAGEENTRIES) {
+        loadpage(filename, &locationsnumber);
+        ++currentpage;
+       }
+       currentpage=1;
+       loadpage(filename, &locationsnumber);
+       if (explicitmylocaloffset==0) {
+        mylocalOffset=locations[0].localOffset;
+        explicitmylocaloffset=1;
+       }
+      }
       switch(c) {
        case ENTER:
 	    secondson=(secondson) ? 0 : 1;
@@ -161,7 +173,7 @@ void loadpage(char *filename, int *locationsnumber)
 // read config file
 int readconfigfile(char *filename)
 {
-  int i, i1, infile, entriesnumber, locationsnumber=0;
+  int i, i1, tlength, infile, entriesnumber, locationsnumber=0;
   char array[MAXPAGEENTRIES*3][MAXLINE];
   char tlines[3][MAXLINE];
 
@@ -174,23 +186,22 @@ int readconfigfile(char *filename)
     for (i1=0;i1<3;i1++)
      strcpy(tlines[i1], array[i+i1]);
     strcpy(locations[locationsnumber].City, tlines[0]);
-    if (locations[locationsnumber].City[strlen(locations[locationsnumber].City)-1]=='*') {
-     locations[locationsnumber].City[strlen(locations[locationsnumber].City)-1]='\0';
+    tlength=strlen(locations[locationsnumber].City)-1;
+    if (locations[locationsnumber].City[tlength]=='*') {
+     locations[locationsnumber].City[tlength--]='\0';
      locations[locationsnumber].Bold=1;
     }
     else
      locations[locationsnumber].Bold=0;  
     locations[locationsnumber].localOffset=atof(tlines[1]);
-    if (locations[locationsnumber].City[strlen(locations[locationsnumber].City)-1]=='&' && !explicitmylocaloffset) {
-     locations[locationsnumber].City[strlen(locations[locationsnumber].City)-1]='\0';
+    if ((locations[locationsnumber].City[tlength]=='&' && explicitmylocaloffset==0) || (locations[locationsnumber].City[tlength]=='&' && mylocalOffset==locations[locationsnumber].localOffset)) {
+     locations[locationsnumber].City[tlength]='\0';
      mylocalOffset=locations[locationsnumber].localOffset;
      explicitmylocaloffset=1;
     }
     locations[locationsnumber].dstCorrection=abs(atof(tlines[2]));
    }
    
-   if (explicitmylocaloffset==0)
-    mylocalOffset=locations[0].localOffset;
    for (i=0;i<locationsnumber;i++)
     if (mylocalOffset!=locations[i].localOffset)
      locations[i].localOffset-=locations[i].dstCorrection;
