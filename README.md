@@ -14,6 +14,9 @@ build with cc wclock wclock.c -lncurses
 keys 
  
 space toggles 12/24 hour mode 
+
 enter toggles seconds on/off
+
 pgup, pgdown move through city pages
+
 ESC will exit wclock
