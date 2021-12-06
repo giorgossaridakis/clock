@@ -11,7 +11,7 @@
 #include <pwd.h>
 
 // constants
-#define version 4.0
+#define version 5.0
 #define MAXPAGEENTRIES 63
 #define MAXLINE 80
 #define NAME 25
@@ -190,17 +190,21 @@ int readlocationentries(int pagenumber, int fd)
      strcpy(tlines[i1], array[i+i1]);
     strcpy(locations[locationsnumber].City, tlines[0]);
     tlength=strlen(locations[locationsnumber].City)-1;
-    if (locations[locationsnumber].City[tlength]=='*') {
+    while (tlength) {
+     if (locations[locationsnumber].City[tlength]=='*') {
+      locations[locationsnumber].City[tlength--]='\0';
+      locations[locationsnumber].Bold=1;
+     }
+     else
+      locations[locationsnumber].Bold=0;  
+     locations[locationsnumber].localOffset=atof(tlines[1]);
+     if ((locations[locationsnumber].City[tlength]=='&' && explicitmylocaloffset==0) || (locations[locationsnumber].City[tlength]=='&' && mylocalOffset==locations[locationsnumber].localOffset)) {
      locations[locationsnumber].City[tlength--]='\0';
-     locations[locationsnumber].Bold=1;
-    }
-    else
-     locations[locationsnumber].Bold=0;  
-    locations[locationsnumber].localOffset=atof(tlines[1]);
-    if ((locations[locationsnumber].City[tlength]=='&' && explicitmylocaloffset==0) || (locations[locationsnumber].City[tlength]=='&' && mylocalOffset==locations[locationsnumber].localOffset)) {
-     locations[locationsnumber].City[tlength]='\0';
-     mylocalOffset=locations[locationsnumber].localOffset;
-     explicitmylocaloffset=1;
+      mylocalOffset=locations[locationsnumber].localOffset;
+      explicitmylocaloffset=1;
+     }
+     if (locations[locationsnumber].City[tlength]!='&' && locations[locationsnumber].City[tlength]!='*')
+      tlength=0;
     }
     locations[locationsnumber].dstCorrection=abs(atof(tlines[2]));
    }
