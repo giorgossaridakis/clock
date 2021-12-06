@@ -11,14 +11,14 @@
 #include <pwd.h>
 
 // constants
-#define version 3.0
+#define version 4.0
 #define MAXPAGEENTRIES 63
 #define MAXLINE 80
 #define NAME 25
 #define ESCAPE 27
 #define SPACE 32
 #define ENTER '\n'
-#define OTHERKEY 0
+#define APPLYDST '*'
 #define PGUP 339
 #define PGDOWN 338
 #define INITIALIZE 1000
@@ -35,18 +35,18 @@ typedef struct {
   char Time[NAME]; } Location;
 Location locations[MAXPAGEENTRIES];
 
-ui secondson=1, clock24=1, explicitmylocaloffset=0;
+ui secondson=1, clock24=1, explicitmylocaloffset=0, applydst=1;
 double mylocalOffset;
-int alllocationsnumber=0, currentpage=1;
+int alllocationsnumber=0, currentpage=1, totalpages=0;
 enum { RED=1, GREEN=2, YELLOW, BLUE, MAGENTA, CYAN, WHITE };
 
 // function declarations
-void loadpage(char *filename, int *locationsnumber);
-int readconfigfile(char *filename);
+void loadpage(int pagenumber, char *filename, int *locationsnumber);
+int readlocationentries(int pagenumber, int fd);
 int fastforwardfile(int fd, int page);
-size_t readfileentry(int fd, char *line);
 int assignvaluestoarray(int fd, char array[MAXPAGEENTRIES*3][MAXLINE], int entries);
-void createtimestring(int entryid) ;
+void createtimestring(int entryid);
+size_t readfileentry(int fd, char *line);
 char* addspacestoline(char *line);
 unsigned int isseparationchar(char t);
 unsigned int isfdopen(int fd);
@@ -72,24 +72,24 @@ int main(int argc, char *argv[])
    while ((readfileentry(i1, line)))
     ++alllocationsnumber;
    alllocationsnumber/=3;
+   totalpages=alllocationsnumber/MAXPAGEENTRIES;
+   if (alllocationsnumber % MAXPAGEENTRIES)
+    ++totalpages;
    
    wtimeout(win1, 1000); // block getch() for 1000ms
 
     while (c!=ESCAPE) {
 
       c=(c==INITIALIZE) ? INITIALIZE+1 : getch(); // skip 1 second wait on entry
-      // read all entries, determine mylocalOffset
+      // and read all entries, determine mylocalOffset
       if (c==INITIALIZE+1) {
-       while (locationsnumber==MAXPAGEENTRIES) {
-        loadpage(filename, &locationsnumber);
-        ++currentpage;
-       }
-       currentpage=1;
-       loadpage(filename, &locationsnumber);
+       for (i=0;i<=totalpages;i++)
+        loadpage(i, filename, &locationsnumber);
        if (explicitmylocaloffset==0) {
         mylocalOffset=locations[0].localOffset;
         explicitmylocaloffset=1;
        }
+       loadpage(currentpage, filename, &locationsnumber);
       }
       switch(c) {
        case ENTER:
@@ -98,17 +98,21 @@ int main(int argc, char *argv[])
        case SPACE:
 	    clock24=(clock24) ? 0 : 1;
        break;
+       case APPLYDST:
+        applydst=(applydst) ? 0 : 1;
+        loadpage(currentpage, filename, &locationsnumber);
+       break;
 	   case PGUP:
 	   if (currentpage==1 || currentpage==9999)
 	    break;
 	    --currentpage;
-	    loadpage(filename, &locationsnumber);
+        loadpage(currentpage, filename, &locationsnumber);
        break;
 	   case PGDOWN:
 	   if (locationsnumber<MAXPAGEENTRIES) // last page not fully loaded
 	    break;
 	   ++currentpage;
-	   loadpage(filename, &locationsnumber);
+	   loadpage(currentpage, filename, &locationsnumber);
       break;
       default:
 	  // nothing
@@ -162,26 +166,25 @@ int main(int argc, char *argv[])
 // wclock specific routines
 
 // load-reload page
-void loadpage(char *filename, int *locationsnumber)
+void loadpage(int pagenumber, char *filename, int *locationsnumber)
 {
-  int i;
-
-   *locationsnumber=readconfigfile(filename);
+  int fd;
+  
+   if ((fd=open(filename, O_RDONLY))==-1)
+    exit(-1);
+   fastforwardfile(fd, pagenumber);
+   *locationsnumber=readlocationentries(pagenumber, fd);
    drawscreen();
 }
 
 // read config file
-int readconfigfile(char *filename)
+int readlocationentries(int pagenumber, int fd)
 {
-  int i, i1, tlength, infile, entriesnumber, locationsnumber=0;
+  int i, i1, tlength, entriesnumber, locationsnumber=0;
   char array[MAXPAGEENTRIES*3][MAXLINE];
   char tlines[3][MAXLINE];
 
-   if ((infile=open(filename, O_RDONLY))==-1)
-    exit(-1);
-   fastforwardfile(infile, currentpage);
-   entriesnumber=assignvaluestoarray(infile, array, MAXPAGEENTRIES*3);
-
+   entriesnumber=assignvaluestoarray(fd, array, MAXPAGEENTRIES*3);
    for (i=locationsnumber=0;i<entriesnumber;locationsnumber++, i+=3) {
     for (i1=0;i1<3;i1++)
      strcpy(tlines[i1], array[i+i1]);
@@ -202,9 +205,10 @@ int readconfigfile(char *filename)
     locations[locationsnumber].dstCorrection=abs(atof(tlines[2]));
    }
    
-   for (i=0;i<locationsnumber;i++)
-    if (mylocalOffset!=locations[i].localOffset)
-     locations[i].localOffset-=locations[i].dstCorrection;
+   if (applydst)
+    for (i=0;i<locationsnumber;i++)
+     if (mylocalOffset!=locations[i].localOffset)
+      locations[i].localOffset-=locations[i].dstCorrection;
    
 
  return locationsnumber;
@@ -219,32 +223,6 @@ int fastforwardfile(int fd, int page)
    for (i=1;i<page && nread;i++)
     for (i1=0;i1<MAXPAGEENTRIES*3 && nread;i1++)
      nread=readfileentry(fd, tline);
-
-   currentpage=i;
-
- return nread;
-}
-
-// read entry from file
-size_t readfileentry(int fd, char *line)
-{
-  char buf[1];
-  int i=0;
-  size_t nread;
-
-    while ((nread=read(fd, buf, sizeof(buf)))) {
-     if (isseparationchar(buf[0])) {
-      if (i==0) // no characters in line, separation character skipped
-       continue;
-      break; // break read, separation character not recorded
-     }
-     line[i++]=buf[0];
-    }
-    line[i]='\0';
-
-    // file ended, close file descriptor
-    if (nread==0)
-     close(fd);
 
  return nread;
 }
@@ -310,6 +288,31 @@ void createtimestring(int entryid)
 
 // library routines
 
+
+// read entry from file
+size_t readfileentry(int fd, char *line)
+{
+  char buf[1];
+  int i=0;
+  size_t nread;
+
+    while ((nread=read(fd, buf, sizeof(buf)))) {
+     if (isseparationchar(buf[0])) {
+      if (i==0) // no characters in line, separation character skipped
+       continue;
+      break; // break read, separation character not recorded
+     }
+     line[i++]=buf[0];
+    }
+    line[i]='\0';
+
+    // file ended, close file descriptor
+    if (nread==0)
+     close(fd);
+
+ return nread;
+}
+
 // add spaces to the beggining of string
 char* addspacestoline(char *line)
 {
@@ -363,12 +366,9 @@ return strlen(buffer)-1;
 // draw screen
 void drawscreen()
 {
-  int x, y, totalpages;
+  int x, y;
   char line[MAXLINE];
   time_t mytime; struct tm* timeinfo;
-  totalpages=alllocationsnumber/MAXPAGEENTRIES;
-  if (alllocationsnumber % MAXPAGEENTRIES)
-   ++totalpages;
 
      clear();
      // draw ascii frame & print information
@@ -396,9 +396,9 @@ void drawscreen()
      gotoxy(x, 24);
      textcolor(MAGENTA);
      printw("%s cities: %d page: %d/%d <pgup> <pgdown> <esc> quit",  line, alllocationsnumber, currentpage, totalpages);
-     gotoxy(5, 1);
+     gotoxy(6, 1);
      textcolor(BLUE);
-     printw("World Clock %.2lf <space> toggle 12/24hours <enter> toggle seconds on/off", version);
+     printw("World Clock %.2lf <*> daylight saving <space> 12/24hours seconds on/off", version);
      refresh();
 }
 
@@ -421,7 +421,7 @@ int initscreen()
   init_pair(CYAN, COLOR_CYAN, COLOR_BLACK);
   init_pair(WHITE, COLOR_WHITE, COLOR_BLACK);
   
- return 0;
+ return has_colors();
 }
 
 // close screen
@@ -430,21 +430,15 @@ void endscreen()
   delwin(win1);
   endwin();
   curs_set(1);
-  refresh();
 }
 
 // change color
 void textcolor(int choice)
 {
-  int color;  
-  
-  if (!choice)
-   color=58;
-  else
-   color=choice;
-   attron(COLOR_PAIR(color));
+   attron(COLOR_PAIR(choice));
 }
 
+// gotoxy adjusted for ncurses move
 void gotoxy(int x, int y)
 {
   move(y-1, x-1);
