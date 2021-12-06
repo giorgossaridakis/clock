@@ -16,6 +16,8 @@ wclock assumes your first city entry as your local time point of reference. you 
 build with cc wclock wclock.c -lncurses
   
 keys 
+
+* apply daylight saving to cities other than reference city or not
  
 space toggles 12/24 hour mode 
 
