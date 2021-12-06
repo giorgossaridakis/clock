@@ -175,6 +175,7 @@ void loadpage(int pagenumber, char *filename, int *locationsnumber)
    fastforwardfile(fd, pagenumber);
    *locationsnumber=readlocationentries(pagenumber, fd);
    drawscreen();
+   close(fd);
 }
 
 // read config file
