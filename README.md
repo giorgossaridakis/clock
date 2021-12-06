@@ -17,12 +17,12 @@ build with cc wclock wclock.c -lncurses
   
 keys 
 
-* apply daylight saving to cities other than reference city or not
+<*> apply daylight saving to cities other than reference city or not
  
-space toggles 12/24 hour mode 
+<space> toggles 12/24 hour mode 
 
-enter toggles seconds on/off
+<enter> toggles seconds on/off
 
-pgup, pgdown move through city pages
+<pgup>, <pgdown> move through city pages
 
-ESC will exit wclock
+<ESC> will exit wclock
