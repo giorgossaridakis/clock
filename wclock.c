@@ -103,6 +103,8 @@ int main(int argc, char *argv[])
          citytofind[0]=toupper(citytofind[0]);
         citytofind[entrypos]='\0';
         entrypos=0;
+        if (!strlen(citytofind))
+         break;
         if ((i=locatecity(filename, citytofind))!=currentpage && i)
          currentpage=i;
         loadpage(currentpage, filename, &locationsnumber);
