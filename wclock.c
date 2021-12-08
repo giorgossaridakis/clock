@@ -21,7 +21,6 @@
 #define ENTER '\n'
 #define APPLYDST '*'
 #define SECONDSONOFF '!'
-#define FINDCITY '/'
 #define PGUP 339
 #define PGDOWN 338
 #define INITIALIZE 1000
