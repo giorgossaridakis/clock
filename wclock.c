@@ -12,7 +12,7 @@
 #include <pwd.h>
 
 // constants
-#define version 6.0
+#define version 7.0
 #define MAXPAGEENTRIES 63
 #define MAXLINE 80
 #define NAME 25
@@ -39,7 +39,7 @@ Location locations[MAXPAGEENTRIES];
 
 ui secondson=1, clock24=1, explicitmylocaloffset=0, applydst=1;
 double mylocalOffset;
-int alllocationsnumber=0, currentpage=1, totalpages=0;
+int alllocationsnumber=0, currentpage=1, totalpages=0, locatecitymode=0;
 enum { RED=1, GREEN=2, YELLOW, BLUE, MAGENTA, CYAN, WHITE, BLACK };
 
 // function declarations
@@ -102,9 +102,10 @@ int main(int argc, char *argv[])
          break;
         citytofind[0]=toupper(citytofind[0]);
         citytofind[entrypos]='\0';
-        entrypos=0;
+        entrypos=0; locatecitymode=1;
         if ((i=locatecity(filename, citytofind))!=currentpage && i)
          currentpage=i;
+        locatecitymode=(i) ? 2 : 0;
         loadpage(currentpage, filename, &locationsnumber);
        break;
        case SECONDSONOFF:
@@ -120,12 +121,14 @@ int main(int argc, char *argv[])
 	   case PGUP:
 	   if (currentpage==1 || currentpage==999)
 	    break;
+       locatecitymode=0;
 	    --currentpage;
         loadpage(currentpage, filename, &locationsnumber);
        break;
 	   case PGDOWN:
 	   if (locationsnumber<MAXPAGEENTRIES) // last page not fully loaded
 	    break;
+       locatecitymode=0;
 	   ++currentpage;
 	   loadpage(currentpage, filename, &locationsnumber);
       break;
@@ -161,9 +164,11 @@ int main(int argc, char *argv[])
        else
         attron(A_BOLD);
       }
+      if (locatecitymode==2 && !strcmp(locations[i1].City, citytofind))
+       attron(A_BLINK);
       printw("%s", addspacestoline(line));
-      if (!has_colors())
-       attroff(A_BOLD);
+      attroff(A_BOLD);
+      attroff(A_BLINK);
       x+=27;
       if (++row>2) {
        row=0;
@@ -274,21 +279,26 @@ int assignvaluestoarray(int fd, char array[MAXPAGEENTRIES*3][MAXLINE], int entri
 // locate city in database
 int locatecity(char *filename, char *city)
 {
-  int i, i1, tlocationsnumber;
+  int i1, nread, read=0;
+  char line[MAXLINE];
   
-   for (i=1;i<totalpages+1;i++) {
-    loadpage(i, filename, &tlocationsnumber);
-    for (i1=0;i1<tlocationsnumber;i1++)
-     if (!strcmp(locations[i1].City, city))
-      break;
-    if (i1<tlocationsnumber)
+   if ((i1=open(filename, O_RDONLY))==-1)
+    exit(-1);
+   while ((nread=readfileentry(i1, line))) {
+    if (!strcmp(city, line))
      break;
+    ++read;
    }
-    
-   if (i==totalpages+1) // nothing found
+   close(i1);
+   
+   if (nread==0)
     return 0;
-    
- return i;
+   
+   read/=3*MAXPAGEENTRIES;
+   if (read % MAXPAGEENTRIES)
+    ++read;
+
+ return read;
 }
 
 
@@ -387,6 +397,9 @@ unsigned int isseparationchar(char t)
 {
   if (t==' ' || t=='\n' || t=='\r')
    return WORD;
+  if (locatecitymode==1)
+   if (t=='*' || t=='&')
+    return WORD;
 
  return NONE;
 }
