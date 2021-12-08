@@ -17,7 +17,7 @@ build with cc wclock wclock.c -lncurses
   
 keys 
 
-* apply daylight saving to cities other than reference city or not
+<*> apply daylight saving to cities other than reference city or not
 
 ! toggles seconds on/off
 
