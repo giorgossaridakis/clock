@@ -98,12 +98,11 @@ int main(int argc, char *argv[])
        citytofind[entrypos++]=c;
       switch(c) {
        case ENTER:
-        if (strlen(citytofind))
-         citytofind[0]=toupper(citytofind[0]);
-        citytofind[entrypos]='\0';
-        entrypos=0;
         if (!strlen(citytofind))
          break;
+        citytofind[0]=toupper(citytofind[0]);
+        citytofind[entrypos]='\0';
+        entrypos=0;
         if ((i=locatecity(filename, citytofind))!=currentpage && i)
          currentpage=i;
         loadpage(currentpage, filename, &locationsnumber);
@@ -117,9 +116,6 @@ int main(int argc, char *argv[])
        case APPLYDST:
         applydst=(applydst) ? 0 : 1;
         loadpage(currentpage, filename, &locationsnumber);
-       break;
-       case FINDCITY:
-
        break;
 	   case PGUP:
 	   if (currentpage==1 || currentpage==999)
