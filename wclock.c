@@ -12,7 +12,7 @@
 #include <pwd.h>
 
 // constants
-#define version 7.0
+#define version 8.0
 #define MAXPAGEENTRIES 63
 #define MAXLINE 80
 #define NAME 25
@@ -41,6 +41,7 @@ ui secondson=1, clock24=1, explicitmylocaloffset=0, applydst=1;
 double mylocalOffset;
 int alllocationsnumber=0, currentpage=1, totalpages=0, locatecitymode=0;
 enum { RED=1, GREEN=2, YELLOW, BLUE, MAGENTA, CYAN, WHITE, BLACK };
+enum { BOLD=1, REFERENCE, BOTH };
 
 // function declarations
 void loadpage(int pagenumber, char *filename, int *locationsnumber);
@@ -49,6 +50,7 @@ int fastforwardfile(int fd, int page);
 int assignvaluestoarray(int fd, char array[MAXPAGEENTRIES*3][MAXLINE], int entries);
 int locatecity(char *filename, char *city);
 void createtimestring(int entryid);
+int iscityboldreference(char *city);
 size_t readfileentry(int fd, char *line);
 char* addspacestoline(char *line);
 unsigned int isseparationchar(char t);
@@ -72,8 +74,15 @@ int main(int argc, char *argv[])
   // read city entries
    if ((i1=open(filename, O_RDONLY))==-1)
     exit(-1);
-   while ((readfileentry(i1, line)))
+   while ((readfileentry(i1, line))) {
     ++alllocationsnumber;
+    if ((iscityboldreference(line))>BOLD) {
+     if ((readfileentry(i1, line)==0))
+      break;
+     mylocalOffset=atof(line);
+     explicitmylocaloffset=1;
+    }
+   }
    alllocationsnumber/=3;
    totalpages=alllocationsnumber/MAXPAGEENTRIES;
    if (alllocationsnumber % MAXPAGEENTRIES)
@@ -86,13 +95,11 @@ int main(int argc, char *argv[])
       c=(c==INITIALIZE) ? INITIALIZE+1 : getch(); // skip 1 second wait on entry
       // and read all entries, determine mylocalOffset
       if (c==INITIALIZE+1) {
-       for (i=0;i<=totalpages;i++)
-        loadpage(i, filename, &locationsnumber);
+       loadpage(currentpage, filename, &locationsnumber);
        if (explicitmylocaloffset==0) {
         mylocalOffset=locations[0].localOffset;
         explicitmylocaloffset=1;
        }
-       loadpage(currentpage, filename, &locationsnumber);
       }
       if ((isalpha(c) || isdigit(c)) && entrypos<NAME-1)
        citytofind[entrypos++]=c;
@@ -211,7 +218,7 @@ void loadpage(int pagenumber, char *filename, int *locationsnumber)
 // read config file
 int readlocationentries(int pagenumber, int fd)
 {
-  int i, i1, tlength, entriesnumber, locationsnumber=0;
+  int i, i1, tbold, entriesnumber, locationsnumber=0;
   char array[MAXPAGEENTRIES*3][MAXLINE];
   char tlines[3][MAXLINE];
 
@@ -220,23 +227,10 @@ int readlocationentries(int pagenumber, int fd)
     for (i1=0;i1<3;i1++)
      strcpy(tlines[i1], array[i+i1]);
     strcpy(locations[locationsnumber].City, tlines[0]);
-    tlength=strlen(locations[locationsnumber].City)-1;
-    while (tlength) {
-     if (locations[locationsnumber].City[tlength]=='*') {
-      locations[locationsnumber].City[tlength--]='\0';
-      locations[locationsnumber].Bold=1;
-     }
-     else
-      locations[locationsnumber].Bold=0;  
-     locations[locationsnumber].localOffset=atof(tlines[1]);
-     if ((locations[locationsnumber].City[tlength]=='&' && explicitmylocaloffset==0) || (locations[locationsnumber].City[tlength]=='&' && mylocalOffset==locations[locationsnumber].localOffset)) {
-     locations[locationsnumber].City[tlength--]='\0';
-      mylocalOffset=locations[locationsnumber].localOffset;
-      explicitmylocaloffset=1;
-     }
-     if (locations[locationsnumber].City[tlength]!='&' && locations[locationsnumber].City[tlength]!='*')
-      tlength=0;
-    }
+    locations[locationsnumber].Bold=0;
+    if ((tbold=iscityboldreference(locations[locationsnumber].City))==BOLD || tbold==BOTH)
+     locations[locationsnumber].Bold=tbold;
+    locations[locationsnumber].localOffset=atof(tlines[1]);
     locations[locationsnumber].dstCorrection=abs(atof(tlines[2]));
    }
    
@@ -345,6 +339,27 @@ void createtimestring(int entryid)
    }
  strcpy(locations[entryid].Time, buffer);
 
+}
+
+// is city reference
+int iscityboldreference(char *city)
+{
+  int tlength=strlen(city)-1, count=0;
+  
+  while (tlength) {
+   if (city[tlength]=='*') {
+    ++count;
+    city[tlength--]='\0';;
+   }
+   if (city[tlength]=='&') {
+    count=(count==0) ? 2 : 3;
+    city[tlength--]='\0';
+   }
+   if (city[tlength]!='*' && city[tlength]!='&')
+    tlength=0;
+  }
+  
+ return count;
 }
 
 // library routines
