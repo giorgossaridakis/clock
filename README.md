@@ -23,7 +23,9 @@ keys
 
 space toggles 12/24 hour mode 
  
-any alphanumerical key will add to the city you wish to locate, enter will look for it
+any alphabet key will add to the city you wish to locate, enter will look for it
+
+a numerical input, followed by enter will jump to that page
 
 pgup, pgdown move through city pages
 
