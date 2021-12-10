@@ -12,7 +12,7 @@
 #include <pwd.h>
 
 // constants
-#define version 8.0
+#define version 9.0
 #define MAXPAGEENTRIES 63
 #define MAXLINE 80
 #define NAME 25
@@ -45,7 +45,7 @@ enum { BOLD=1, REFERENCE, BOTH };
 
 // function declarations
 void loadpage(int pagenumber, char *filename, int *locationsnumber);
-int readlocationentries(int pagenumber, int fd);
+int readlocationentries(int fd);
 int fastforwardfile(int fd, int page);
 int assignvaluestoarray(int fd, char array[MAXPAGEENTRIES*3][MAXLINE], int entries);
 int locatecity(char *filename, char *city);
@@ -58,6 +58,7 @@ unsigned int isfdopen(int fd);
 char *setupfilepathtoexecutable(const char *argument, const char *file);
 int numberofzeroes(int num);
 void drawscreen(int pagenumber);
+void showmessage(char *message);
 int initscreen();
 void endscreen();
 void textcolor(int choice);
@@ -105,14 +106,20 @@ int main(int argc, char *argv[])
        citytofind[entrypos++]=c;
       switch(c) {
        case ENTER:
-        if (!strlen(citytofind))
+        if (entrypos==0)
          break;
         citytofind[0]=toupper(citytofind[0]);
         citytofind[entrypos]='\0';
-        entrypos=0; locatecitymode=1;
-        if ((i=locatecity(filename, citytofind))!=currentpage && i)
+        entrypos=0;
+        if ((i=atoi(citytofind)) && i<=totalpages)
          currentpage=i;
-        locatecitymode=(i) ? 2 : 0;
+        else {
+         locatecitymode=1;
+         showmessage("searching city..");
+         if ((i=locatecity(filename, citytofind)))
+          currentpage=i;
+         locatecitymode=(i) ? 2 : 0;
+        }
         loadpage(currentpage, filename, &locationsnumber);
        break;
        case SECONDSONOFF:
@@ -184,11 +191,8 @@ int main(int argc, char *argv[])
       }
      }
      // erase reading message
-     if (y<12) {
-      gotoxy(32, 12);
-      textcolor(BLACK);
-      printw("                   ");
-     }
+     if (y<12)
+      showmessage("                   ");
      refresh();
     }
     endwin();
@@ -205,18 +209,16 @@ void loadpage(int pagenumber, char *filename, int *locationsnumber)
   
    if ((fd=open(filename, O_RDONLY))==-1)
     exit(-1);
+   showmessage("reading database...");
    fastforwardfile(fd, pagenumber);
-   *locationsnumber=readlocationentries(pagenumber, fd);
+   *locationsnumber=readlocationentries(fd);
    close(fd);
    drawscreen(pagenumber);
-   gotoxy(32, 12);
-   textcolor(RED);
-   printw("reading database...");
    refresh();
 }
 
 // read config file
-int readlocationentries(int pagenumber, int fd)
+int readlocationentries(int fd)
 {
   int i, i1, tbold, entriesnumber, locationsnumber=0;
   char array[MAXPAGEENTRIES*3][MAXLINE];
@@ -471,10 +473,10 @@ void drawscreen(int pagenumber)
      time (&mytime);
      timeinfo = localtime (&mytime);
      strftime(line, MAXLINE, "%A %d %B %Y", timeinfo);
-     x=4-numberofzeroes(totalpages);
+     x=5-numberofzeroes(totalpages);
      gotoxy(x, 24);
      textcolor(MAGENTA);
-     printw("%s cities:%d page:%d/%d <pgup> <pgdown> <esc>quit", line, alllocationsnumber, pagenumber, totalpages);
+     printw("%s cities:%d page:%d/%d <pgup> <pgdown> <esc> quit", line, alllocationsnumber, pagenumber, totalpages);
      gotoxy(2, 1);
      textcolor(BLUE);
      printw("World Clock %.2lf <*>dst on/off <!>seconds on/off <space>12/24hours <enter>find ", version);
@@ -502,6 +504,16 @@ int initscreen()
   init_pair(BLACK, COLOR_BLACK, COLOR_BLACK);
   
  return has_colors();
+}
+
+// show message
+void showmessage(char *message)
+{
+   gotoxy(32, 12);
+   textcolor(RED);
+   printw("%s", message);
+   gotoxy(1,1);
+   refresh();
 }
 
 // close screen
