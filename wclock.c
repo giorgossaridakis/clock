@@ -290,10 +290,14 @@ int locatecity(char *filename, char *city)
    if (nread==0)
     return 0;
    
-   read/=3*MAXPAGEENTRIES;
-   if (read % MAXPAGEENTRIES)
-    ++read;
-
+   if (read<3*MAXPAGEENTRIES)
+    read=1;
+   else {
+    read/=3*MAXPAGEENTRIES;
+    if (read % MAXPAGEENTRIES)
+     ++read;
+   }
+	   
  return read;
 }
 
