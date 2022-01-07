@@ -8,7 +8,7 @@
 #include <ctype.h>
 
 // constants
-#define version 9.0
+#define version 9.02
 #define MAXPAGEENTRIES 63
 #define MAXLINE 80
 #define NAME 25
@@ -17,6 +17,8 @@
 #define ENTER 13
 #define APPLYDST '*'
 #define SECONDSONOFF '!'
+#define FINDPOINT '@'
+#define FINDREFERENCE '#'
 #define OTHERKEY 0
 #define PGUP 73
 #define PGDOWN 81
@@ -37,8 +39,11 @@ Location locations[MAXPAGEENTRIES];
 ui secondson=1, clock24=1, explicitmylocaloffset=0, applydst=1;
 double mylocalOffset;
 int alllocationsnumber=0, currentpage=1, totalpages=0, locatecitymode=0;
+char *filename;
 
 // function declarations
+int locatepointofinterest(int limit);
+int searchcity();
 void loadpage(int pagenumber, char *filename, int *locationsnumber);
 int readlocationentries(int fd);
 int fastforwardfile(int fd, int page);
@@ -59,7 +64,7 @@ char *setupfilepathtoexecutable(const char *argument, const char *file);
 int main(int argc, char *argv[])
 {
   int i, i1, x, y, row, c=INITIALIZE, locationsnumber, entrypos=0, color, blink;
-  char *filename, line[MAXLINE], citytofind[NAME];
+  char line[MAXLINE], citytofind[NAME];
   filename=setupfilepathtoexecutable(argv[0], "wclock.dat");
 
    // read city entries
@@ -85,10 +90,15 @@ int main(int argc, char *argv[])
       // read all entries, determine mylocalOffset
       if (c==INITIALIZE) {
        c=INITIALIZE+1;
-       loadpage(currentpage, filename, &locationsnumber);
        if (explicitmylocaloffset==0) {
 	mylocalOffset=locations[0].localOffset;
 	explicitmylocaloffset=1;
+       }
+       loadpage(currentpage, filename, &locationsnumber);
+       if (argc==2) {
+	strcpy(citytofind, argv[1]);
+	searchcity(citytofind);
+	loadpage(currentpage, filename, &locationsnumber);
        }
       }
 
@@ -102,18 +112,16 @@ int main(int argc, char *argv[])
 	case ENTER:
 	 if (entrypos==0)
 	  break;
-	 citytofind[0]=toupper(citytofind[0]);
 	 citytofind[entrypos]='\0';
 	 entrypos=0;
-	 if ((i=atoi(citytofind)) && i<totalpages+1)
+	 if ((i=atoi(citytofind))) {
+	  if (i==currentpage || i<0 || i>totalpages)
+	   break;
+	  showmessage("jumping to page...");
 	  currentpage=i;
-	 else {
-	  locatecitymode=1;
-	  showmessage("searching city...");
-	  if ((i=locatecity(filename, citytofind)))
-	   currentpage=i;
-	  locatecitymode=(i) ? 2 : 0;
 	 }
+	 else
+	  searchcity(citytofind);
 	 loadpage(currentpage, filename, &locationsnumber);
 	break;
 	case SECONDSONOFF:
@@ -126,6 +134,18 @@ int main(int argc, char *argv[])
 	 applydst=(applydst) ? 0 : 1;
 	 loadpage(currentpage, filename, &locationsnumber);
 	break;
+	case FINDPOINT:
+	 if ((i1=locatepointofinterest(BOLD))) {
+	  currentpage+=i1;
+	  loadpage(currentpage, filename, &locationsnumber);
+	 }
+	break;
+	case FINDREFERENCE:
+	 if ((i1=locatepointofinterest(REFERENCE))) {
+	  currentpage+=i1;
+	  loadpage(currentpage, filename, &locationsnumber);
+	 }
+	break;
 	case OTHERKEY:
 	 c=getch();
 	 if (c==PGUP-1 || c==PGDOWN-1) // assume arrow keys as well
@@ -134,12 +154,14 @@ int main(int argc, char *argv[])
 	  case PGUP:
 	   if (currentpage==1 || currentpage==9999)
 	    break;
+	    showmessage("turning page...");
 	   --currentpage;
 	   loadpage(currentpage, filename, &locationsnumber);
 	  break;
 	  case PGDOWN:
 	   if (locationsnumber<MAXPAGEENTRIES) // last page not fully loaded
 	    break;
+	   showmessage("turning page...");
 	   ++currentpage;
 	   loadpage(currentpage, filename, &locationsnumber);
 	  break; }
@@ -197,6 +219,52 @@ int main(int argc, char *argv[])
  return 0;
 }
 
+// find point of interest
+int locatepointofinterest(int limit)
+{
+  int i, i1, locationsnumber, page;
+  char line[MAXLINE];
+  locationsnumber=0; page=1;
+  
+  if (currentpage==totalpages)
+   return 0;
+
+   showmessage("locating point...");
+   if ((i=open(filename, O_RDONLY))==-1)
+    exit(-1);
+   fastforwardfile(i, currentpage+1);
+   while ((i1=readfileentry(i, line))) {
+    ++locationsnumber;
+    if ((iscityboldreference(line))>=limit )
+     break;
+    if ((locationsnumber/3)>=MAXPAGEENTRIES) {
+     ++page;
+     locationsnumber=0;
+    }
+   }
+   close(i);
+
+  // cprintf("page: %d currentpage: %d totalpages: %d locationsnumber: %d entries: %d", page, currentpage, totalpages, locationsnumber/3, MAXPAGEENTRIES);
+ return (i1) ? page : i1;
+}
+
+
+// locate city
+int searchcity(char *city)
+{
+  int i;
+
+    city[0]=toupper(city[0]);
+    locatecitymode=1;
+    showmessage("locating city...");
+    i=locatecity(filename, city);
+    locatecitymode=(i) ? 2 : 0;
+    if (i)
+     currentpage=i;
+
+  return i;
+}
+
 // load-reload page
 void loadpage(int pagenumber, char *filename, int *locationsnumber)
 {
@@ -223,6 +291,7 @@ int readlocationentries(int fd)
     for (i1=0;i1<3;i1++)
      strcpy(tlines[i1], array[i+i1]);
     strcpy(locations[locationsnumber].City, tlines[0]);
+    locations[locationsnumber].City[0]=toupper(locations[locationsnumber].City[0]);
     locations[locationsnumber].Bold=0;
     if ((tbold=iscityboldreference(locations[locationsnumber].City))==BOLD || tbold==BOTH)
      locations[locationsnumber].Bold=tbold;
@@ -234,7 +303,7 @@ int readlocationentries(int fd)
     for (i=0;i<locationsnumber;i++)
      if (mylocalOffset!=locations[i].localOffset)
       locations[i].localOffset-=locations[i].dstCorrection;
-   
+
 
  return locationsnumber;
 }
@@ -262,7 +331,6 @@ int assignvaluestoarray(int fd, char array[MAXPAGEENTRIES*3][MAXLINE], int entri
     if ((readfileentry(fd, tline)))
      strcpy(array[actualentries++], tline);
 
-
  return actualentries;
 }
 
@@ -275,6 +343,7 @@ int locatecity(char *filename, char *city)
    if ((i1=open(filename, O_RDONLY))==-1)
     exit(-1);
    while ((nread=readfileentry(i1, line))) {
+    line[0]=toupper(line[0]);
     if (!strcmp(city, line))
      break;
     ++read;
@@ -358,7 +427,7 @@ int iscityboldreference(char *city)
    if (city[tlength]!='*' && city[tlength]!='&')
     tlength=0;
   }
-  
+
  return count;
 }
 
@@ -477,7 +546,7 @@ void drawscreen(int pagenumber)
      x=5-numberofzeroes(totalpages);
      gotoxy(x, 24);
      textcolor(MAGENTA);
-     cprintf("%s cities:%d page:%d/%d <pgup> <pgdown> <esc> quit", line, alllocationsnumber, pagenumber, totalpages);
+     cprintf("%s cities:%d page:%d/%d <pgup/down> <@#> <esc> quit", line, alllocationsnumber, pagenumber, totalpages);
      gotoxy(2, 1);
      textcolor(BLUE);
      cprintf("World Clock %.2lf <*>dst on/off <!>seconds on/off <space>12/24hours <enter>find ", version);
@@ -489,6 +558,7 @@ void showmessage(char *message)
   gotoxy(32, 12);
   textcolor(RED);
   cprintf("%s", message);
+  textcolor(BLACK);
   gotoxy(1,1);
 }
 
