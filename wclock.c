@@ -1,5 +1,4 @@
 // wclock.c, a world clock for the ncurses terminal
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
@@ -12,7 +11,7 @@
 #include <pwd.h>
 
 // constants
-#define version 9.02
+#define version 9.03
 #define MAXPAGEENTRIES 63
 #define MAXLINE 80
 #define NAME 25
@@ -23,6 +22,7 @@
 #define SECONDSONOFF '!'
 #define FINDPOINT '@'
 #define FINDREFERENCE '#'
+#define CYCLESCHEMES '+'
 #define PGUP 339
 #define PGDOWN 338
 #define INITIALIZE 1000
@@ -39,12 +39,32 @@ typedef struct {
   char Time[NAME]; } Location;
 Location locations[MAXPAGEENTRIES];
 
-ui secondson=1, clock24=1, explicitmylocaloffset=0, applydst=1;
-double mylocalOffset;
+ui secondson=1, clock24=1, applydst=1, scheme=1;
+double mylocalOffset=-999;
 int alllocationsnumber=0, currentpage=1, totalpages=0, locatecitymode=0;
 char *filename;
 enum { RED=1, GREEN=2, YELLOW, BLUE, MAGENTA, CYAN, WHITE, BLACK };
 enum { BOLD=1, REFERENCE, BOTH };
+enum { BORDER=0, BOTTOM, BEFORE, AFTER, SAME, HIGHLIGHTED }; // color positions
+int colorschemes[16][6]= { 
+    { WHITE, WHITE, WHITE, WHITE, WHITE, WHITE },
+    { BLUE, MAGENTA, YELLOW, GREEN, CYAN, RED },
+    { YELLOW, CYAN, WHITE, WHITE, WHITE, WHITE },
+    { BLUE, RED, WHITE, WHITE, WHITE, MAGENTA },
+    { RED, RED, WHITE, WHITE, WHITE, BLUE },
+    { YELLOW, CYAN, BLUE, RED, YELLOW, GREEN },
+    { CYAN, YELLOW, BLUE, RED, MAGENTA, GREEN },
+    { MAGENTA, GREEN, YELLOW, CYAN, BLUE, RED },
+    { RED, BLUE, CYAN, YELLOW, MAGENTA, RED },
+    { RED, WHITE, MAGENTA, BLUE, RED, CYAN },
+    { WHITE, RED, BLUE, CYAN, MAGENTA, RED },
+    { GREEN, YELLOW, MAGENTA, CYAN, BLUE, RED },
+    { GREEN, GREEN, CYAN, CYAN, BLUE, RED },
+    { CYAN, CYAN, RED, RED, WHITE, BLUE },
+    { BLUE, BLUE, WHITE, WHITE, GREEN, RED },
+    { WHITE, MAGENTA, RED, BLUE, CYAN, GREEN }
+};
+unsigned int schemes=16;
 
 // function declarations
 void loadpage(int pagenumber, char *filename, int *locationsnumber);
@@ -78,7 +98,7 @@ int main(int argc, char *argv[])
   sprintf((filename=malloc(MAXLINE)), "%s/.wclock", pw->pw_dir);
   
    // parse command line
-   while ((opt = getopt(argc, argv, ":scd")) != -1) {
+   while ((opt = getopt(argc, argv, ":scdh:")) != -1) {
     switch (opt) {
      case 's':
       secondson=0;
@@ -88,6 +108,12 @@ int main(int argc, char *argv[])
      break;
      case 'd':
       applydst=0;
+     break;
+     case 'h':
+      if (atoi(optarg))
+       i=atoi(optarg);
+      if (i && i<=schemes)
+       scheme=i-1;
      break;
      case '?':
       showusage();
@@ -105,7 +131,6 @@ int main(int argc, char *argv[])
      if ((readfileentry(i1, line)==0))
       break;
      mylocalOffset=atof(line);
-     explicitmylocaloffset=1;
     }
    }
    alllocationsnumber/=3;
@@ -120,9 +145,8 @@ int main(int argc, char *argv[])
       c=(c==INITIALIZE) ? INITIALIZE+1 : getch(); // skip 1 second wait on entry
       // and read all entries, determine mylocalOffset
       if (c==INITIALIZE+1) {
-       if (explicitmylocaloffset==0) {
+       if (mylocalOffset==-999) {
         mylocalOffset=locations[0].localOffset;
-        explicitmylocaloffset=1;
        }
        loadpage(currentpage, filename, &locationsnumber);
        if (optind<argc) {
@@ -133,6 +157,10 @@ int main(int argc, char *argv[])
       }
       if ((isalpha(c) || isdigit(c)) && entrypos<NAME-1)
        citytofind[entrypos++]=c;
+      if (c==259)
+       c=PGUP;
+      if (c==258)
+       c=PGDOWN;
       switch(c) {
        case ENTER:
         if (entrypos==0)
@@ -171,6 +199,12 @@ int main(int argc, char *argv[])
 	     loadpage(currentpage, filename, &locationsnumber);
 	    }
 	   break;
+       case CYCLESCHEMES:
+        scheme++;
+        if (scheme==schemes)
+         scheme=0;
+        drawscreen(currentpage);
+       break;
 	   case PGUP:
 	   if (currentpage==1 || currentpage==999)
 	    break;
@@ -208,14 +242,14 @@ int main(int argc, char *argv[])
       break;
       }
       if (mylocalOffset>locations[i1].localOffset)
-       textcolor(GREEN);
+       textcolor(colorschemes[scheme][AFTER]);
       if (mylocalOffset<=locations[i1].localOffset)
-       textcolor(YELLOW);
+       textcolor(colorschemes[scheme][BEFORE]);
       if (mylocalOffset==locations[i1].localOffset)
-       textcolor(CYAN);
+       textcolor(colorschemes[scheme][SAME]);
       if (locations[i1].Bold) {
        if (has_colors())
-        textcolor(RED);
+        textcolor(colorschemes[scheme][HIGHLIGHTED]);
        else
         attron(A_BOLD);
       }
@@ -543,7 +577,7 @@ void drawscreen(int pagenumber)
 
      clear();
      // draw ascii frame & print information
-     textcolor(BLUE);
+     textcolor(colorschemes[scheme][BORDER]);
      for (x=1;x<81;x++) {
       gotoxy(x, 2);
       addch('-');
@@ -565,10 +599,10 @@ void drawscreen(int pagenumber)
      strftime(line, MAXLINE, "%A %d %B %Y", timeinfo);
      x=5-numberofzeroes(totalpages);
      gotoxy(x, 24);
-     textcolor(MAGENTA);
-     printw("%s cities:%d page:%d/%d <pgup/down> <@#> <esc> quit", line, alllocationsnumber, pagenumber, totalpages);
+     textcolor(colorschemes[scheme][BOTTOM]);
+     printw("%s cities:%d page:%d/%d <up/down> <+@#> <esc> quit", line, alllocationsnumber, pagenumber, totalpages);
      gotoxy(2, 1);
-     textcolor(BLUE);
+     textcolor(colorschemes[scheme][BORDER]);
      printw("World Clock %.2lf <*>dst on/off <!>seconds on/off <space>12/24hours <enter>find ", version);
      refresh();
 }
@@ -600,7 +634,7 @@ int initscreen()
 void showmessage(char *message)
 {
    gotoxy(32, 12);
-   textcolor(RED);
+   textcolor(colorschemes[scheme][HIGHLIGHTED]);
    printw("%s", message);
    gotoxy(1,1);
    refresh();
@@ -630,6 +664,6 @@ void gotoxy(int x, int y)
 void showusage()
 {
   printf("Usage:\n wclock [options] city \n\nA terminal world clock.\n\nOptions:\n");
-  printf(" -s\t\tseconds off, default on\n -c\t\t12 hour clock, default 24hours\n -d\t\tdo not apply daylight savings\n     --help\tdisplay this help\n\nDistributed under the GNU Public licence.\n");
+  printf(" -s\t\tseconds off, default on\n -c\t\t12 hour clock, default 24hours\n -d\t\tdo not apply daylight savings\n -h<number>\tcolor scheme [1..%d]\n     --help\tdisplay this help\n\nDistributed under the GNU Public licence.\n", schemes);
   exit (-1);
 }
