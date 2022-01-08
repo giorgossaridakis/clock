@@ -597,7 +597,7 @@ void drawscreen(int pagenumber)
      time (&mytime);
      timeinfo = localtime (&mytime);
      strftime(line, MAXLINE, "%A %d %B %Y", timeinfo);
-     x=5-numberofzeroes(totalpages);
+     x=4-numberofzeroes(totalpages);
      gotoxy(x, 24);
      textcolor(colorschemes[scheme][BOTTOM]);
      printw("%s cities:%d page:%d/%d <up/down> <+@#> <esc> quit", line, alllocationsnumber, pagenumber, totalpages);
