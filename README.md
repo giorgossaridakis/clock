@@ -19,20 +19,22 @@ keys
 
 <*> apply daylight saving to cities other than reference city or not
 
-! toggles seconds on/off
+<!> toggles seconds on/off
 
-space toggles 12/24 hour mode 
+<space> toggles 12/24 hour mode 
  
 any alphabet key will add to the city you wish to locate, enter will look for it
 
 a numerical input, followed by enter will jump to that page
 
-@ will search for the next city that is marked as bold
+<@> will search for the next city that is marked as bold
 
-/# will search for the next city that is marked as city reference
+<#> will search for the next city that is marked as city reference
 
-+ will cycle through 16 color schemes
+<+> will cycle through 16 color schemes
 
 pgup, pgdown or arrows move through city pages
+ 
+wclock --help will display runtime help
 
 ESC will exit wclock
