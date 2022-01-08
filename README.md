@@ -27,6 +27,12 @@ any alphabet key will add to the city you wish to locate, enter will look for it
 
 a numerical input, followed by enter will jump to that page
 
-pgup, pgdown move through city pages
+@ will search for the next city that is marked as bold
+
+/# will search for the next city that is marked as city reference
+
++ will cycle through 16 color schemes
+
+pgup, pgdown or arrows move through city pages
 
 ESC will exit wclock
