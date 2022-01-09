@@ -11,7 +11,7 @@
 #include <pwd.h>
 
 // constants
-#define version 9.03
+#define version 9.04
 #define MAXPAGEENTRIES 63
 #define MAXLINE 80
 #define NAME 25
@@ -194,10 +194,13 @@ int main(int argc, char *argv[])
 	    }
        break;
 	   case FINDREFERENCE:
-	    if ((i1=locatepointofinterest(REFERENCE))) {
+        opt=currentpage;
+        currentpage=1;
+	    if ((i1=locatepointofinterest(REFERENCE)))
 	     currentpage+=i1;
-	     loadpage(currentpage, filename, &locationsnumber);
-	    }
+        else
+         currentpage=opt;
+	    loadpage(currentpage, filename, &locationsnumber);
 	   break;
        case CYCLESCHEMES:
         scheme++;
