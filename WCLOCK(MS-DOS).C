@@ -8,7 +8,7 @@
 #include <ctype.h>
 
 // constants
-#define version 9.02
+#define version 9.05
 #define MAXPAGEENTRIES 63
 #define MAXLINE 80
 #define NAME 25
@@ -19,15 +19,37 @@
 #define SECONDSONOFF '!'
 #define FINDPOINT '@'
 #define FINDREFERENCE '#'
+#define CYCLESCHEMES '+'
 #define OTHERKEY 0
 #define PGUP 73
 #define PGDOWN 81
 #define INITIALIZE 1000
 
+typedef unsigned int ui;
 enum { NONE=0, WORD };
 enum { BOLD=1, REFERENCE, BOTH };
+enum { BORDER=0, BOTTOM, BEFORE, AFTER, SAME, HIGHLIGHTED }; // color positions
+int colorschemes[16][6]= {
+    { WHITE, WHITE, WHITE, WHITE, WHITE, WHITE },
+    { BLUE, MAGENTA, YELLOW, GREEN, CYAN, RED },
+    { YELLOW, CYAN
+    , WHITE, WHITE, WHITE, WHITE },
+    { BLUE, RED, WHITE, WHITE, WHITE, MAGENTA },
+    { RED, RED, WHITE, WHITE, WHITE, BLUE },
+    { YELLOW, CYAN, BLUE, RED, YELLOW, GREEN },
+    { CYAN, YELLOW, BLUE, RED, MAGENTA, GREEN },
+    { MAGENTA, GREEN, YELLOW, CYAN, BLUE, RED },
+    { RED, BLUE, CYAN, YELLOW, MAGENTA, RED },
+    { RED, WHITE, MAGENTA, BLUE, RED, CYAN },
+    { WHITE, RED, BLUE, CYAN, MAGENTA, RED },
+    { GREEN, YELLOW, MAGENTA, CYAN, BLUE, RED },
+    { GREEN, GREEN, CYAN, CYAN, BLUE, RED },
+    { CYAN, CYAN, RED, RED, WHITE, BLUE },
+    { BLUE, BLUE, WHITE, WHITE, GREEN, RED },
+    { WHITE, MAGENTA, RED, BLUE, CYAN, GREEN }
+};
+unsigned int schemes=16;
 
-typedef unsigned int ui;
 typedef struct {
   char City[NAME];
   double localOffset;
@@ -36,8 +58,8 @@ typedef struct {
   char Time[NAME]; } Location;
 Location locations[MAXPAGEENTRIES];
 
-ui secondson=1, clock24=1, explicitmylocaloffset=0, applydst=1;
-double mylocalOffset;
+ui secondson=1, clock24=1, applydst=1, scheme=1;
+double mylocalOffset=-999;
 int alllocationsnumber=0, currentpage=1, totalpages=0, locatecitymode=0;
 char *filename;
 
@@ -63,7 +85,7 @@ char *setupfilepathtoexecutable(const char *argument, const char *file);
 
 int main(int argc, char *argv[])
 {
-  int i, i1, x, y, row, c=INITIALIZE, locationsnumber, entrypos=0, color, blink;
+  int i, i1, opt, x, y, row, c=INITIALIZE, locationsnumber, entrypos=0, color, blink;
   char line[MAXLINE], citytofind[NAME];
   filename=setupfilepathtoexecutable(argv[0], "wclock.dat");
 
@@ -77,7 +99,6 @@ int main(int argc, char *argv[])
      if ((readfileentry(i1, line)==0))
       break;
      mylocalOffset=atof(line);
-     explicitmylocaloffset=1;
     }
    }
    alllocationsnumber/=3;
@@ -90,16 +111,16 @@ int main(int argc, char *argv[])
       // read all entries, determine mylocalOffset
       if (c==INITIALIZE) {
        c=INITIALIZE+1;
-       if (explicitmylocaloffset==0) {
+       drawscreen(currentpage);
+       if (mylocalOffset==-999)
 	mylocalOffset=locations[0].localOffset;
-	explicitmylocaloffset=1;
-       }
        loadpage(currentpage, filename, &locationsnumber);
        if (argc==2) {
 	strcpy(citytofind, argv[1]);
 	searchcity(citytofind);
 	loadpage(currentpage, filename, &locationsnumber);
        }
+       drawscreen(currentpage);
       }
 
       if (kbhit()) {
@@ -123,6 +144,7 @@ int main(int argc, char *argv[])
 	 else
 	  searchcity(citytofind);
 	 loadpage(currentpage, filename, &locationsnumber);
+     drawscreen(currentpage);
 	break;
 	case SECONDSONOFF:
 	 secondson=(secondson) ? 0 : 1;
@@ -133,18 +155,30 @@ int main(int argc, char *argv[])
 	case APPLYDST:
 	 applydst=(applydst) ? 0 : 1;
 	 loadpage(currentpage, filename, &locationsnumber);
+     drawscreen(currentpage);
 	break;
 	case FINDPOINT:
 	 if ((i1=locatepointofinterest(BOLD))) {
 	  currentpage+=i1;
 	  loadpage(currentpage, filename, &locationsnumber);
+	  drawscreen(currentpage);
 	 }
 	break;
 	case FINDREFERENCE:
-	 if ((i1=locatepointofinterest(REFERENCE))) {
+	 opt=currentpage;
+	 currentpage=1;
+	 if ((i1=locatepointofinterest(REFERENCE)))
 	  currentpage+=i1;
-	  loadpage(currentpage, filename, &locationsnumber);
-	 }
+	 else
+	  currentpage=opt;
+	 loadpage(currentpage, filename, &locationsnumber);
+	 drawscreen(currentpage);
+	break;
+	case CYCLESCHEMES:
+	 scheme++;
+	 if (scheme==schemes)
+	  scheme=0;
+	 drawscreen(currentpage);
 	break;
 	case OTHERKEY:
 	 c=getch();
@@ -157,13 +191,14 @@ int main(int argc, char *argv[])
 	    showmessage("turning page...");
 	   --currentpage;
 	   loadpage(currentpage, filename, &locationsnumber);
+	   drawscreen(currentpage);
 	  break;
 	  case PGDOWN:
 	   if (locationsnumber<MAXPAGEENTRIES) // last page not fully loaded
 	    break;
 	   showmessage("turning page...");
-	   ++currentpage;
-	   loadpage(currentpage, filename, &locationsnumber);
+	   loadpage(currentpage+1, filename, &locationsnumber);
+	   drawscreen(++currentpage);
 	  break; }
 	  c=-1;
 	 break;
@@ -188,13 +223,13 @@ int main(int argc, char *argv[])
       break;
       }
       if (mylocalOffset>locations[i1].localOffset)
-       color=GREEN;
+       color=colorschemes[scheme][AFTER];
       if (mylocalOffset<locations[i1].localOffset)
-       color=YELLOW;
+       color=colorschemes[scheme][BEFORE];
       if (mylocalOffset==locations[i1].localOffset)
-       color=BROWN;
+       color=colorschemes[scheme][SAME];
       if (locations[i1].Bold)
-       color=RED;
+       color=colorschemes[scheme][HIGHLIGHTED];
       blink=0;
       if (locatecitymode==2 && !strcmp(locations[i1].City, citytofind))
        blink=BLINK;
@@ -225,7 +260,6 @@ int locatepointofinterest(int limit)
   int i, i1, locationsnumber, page;
   char line[MAXLINE];
   locationsnumber=0; page=1;
-  
   if (currentpage==totalpages)
    return 0;
 
@@ -244,7 +278,6 @@ int locatepointofinterest(int limit)
    }
    close(i);
 
-  // cprintf("page: %d currentpage: %d totalpages: %d locationsnumber: %d entries: %d", page, currentpage, totalpages, locationsnumber/3, MAXPAGEENTRIES);
  return (i1) ? page : i1;
 }
 
@@ -268,15 +301,19 @@ int searchcity(char *city)
 // load-reload page
 void loadpage(int pagenumber, char *filename, int *locationsnumber)
 {
-  int fd;
+  static int fd;
+  int nread;
 
-   if ((fd=open(filename, O_RDONLY))==-1)
-    exit(-1);
-   fastforwardfile(fd, pagenumber);
-   *locationsnumber=readlocationentries(fd);
-   close(fd);
-   drawscreen(pagenumber);
+   if (pagenumber<=currentpage || !isfdopen(fd))
+    if ((fd=open(filename, O_RDONLY))==-1)
+     exit(-1);
    showmessage("reading database...");
+   if (pagenumber>currentpage)
+    pagenumber-=currentpage;
+   nread=fastforwardfile(fd, pagenumber);
+   *locationsnumber=readlocationentries(fd);
+   if (!nread)
+    close(fd);
 }
 
 // read config file
@@ -523,7 +560,7 @@ void drawscreen(int pagenumber)
 
      clrscr();
      // draw ascii frame & print information
-     textcolor(CYAN);
+     textcolor(colorschemes[scheme][BORDER]);
      for (x=1;x<81;x++) {
       gotoxy(x, 2);
       putch('-');
@@ -543,12 +580,12 @@ void drawscreen(int pagenumber)
      time (&mytime);
      timeinfo = localtime (&mytime);
      strftime(line, MAXLINE, "%A %d %B %Y", timeinfo);
-     x=5-numberofzeroes(totalpages);
+     x=4-numberofzeroes(totalpages);
      gotoxy(x, 24);
-     textcolor(MAGENTA);
-     cprintf("%s cities:%d page:%d/%d <pgup/down> <@#> <esc> quit", line, alllocationsnumber, pagenumber, totalpages);
+     textcolor(colorschemes[scheme][BOTTOM]);
+     cprintf("%s cities:%d page:%d/%d <pgup/down> <+@#> <esc> quit", line, alllocationsnumber, pagenumber, totalpages);
      gotoxy(2, 1);
-     textcolor(BLUE);
+     textcolor(colorschemes[scheme][BORDER]);
      cprintf("World Clock %.2lf <*>dst on/off <!>seconds on/off <space>12/24hours <enter>find ", version);
 }
 

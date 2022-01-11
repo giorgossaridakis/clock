@@ -9,9 +9,10 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <pwd.h>
+#include <sys/ioctl.h>
 
 // constants
-#define version 9.04
+#define version 9.05
 #define MAXPAGEENTRIES 63
 #define MAXLINE 80
 #define NAME 25
@@ -121,6 +122,16 @@ int main(int argc, char *argv[])
     }
    }
   initscreen();
+  // wait until terminal window becomes 80x24
+  struct winsize w;
+  ioctl( STDOUT_FILENO, TIOCGWINSZ, &w );
+  while (w.ws_row != 24 || w.ws_col != 80) {
+   gotoxy(1,1);
+   printw("terminal size %dx%d, wclock needs 80x24          ", w.ws_col, w.ws_row);
+   refresh();
+   sleep(1);
+   ioctl( STDOUT_FILENO, TIOCGWINSZ, &w );
+  }
     
   // read city entries
    if ((i1=open(filename, O_RDONLY))==-1)
@@ -154,6 +165,7 @@ int main(int argc, char *argv[])
 	    searchcity(citytofind);
 	    loadpage(currentpage, filename, &locationsnumber);
        }
+      drawscreen(currentpage);
       }
       if ((isalpha(c) || isdigit(c)) && entrypos<NAME-1)
        citytofind[entrypos++]=c;
@@ -176,6 +188,7 @@ int main(int argc, char *argv[])
         else
 	     searchcity(citytofind);
         loadpage(currentpage, filename, &locationsnumber);
+        drawscreen(currentpage);
        break;
        case SECONDSONOFF:
 	    secondson=(secondson) ? 0 : 1;
@@ -191,6 +204,7 @@ int main(int argc, char *argv[])
 	    if ((i1=locatepointofinterest(BOLD))) {
 	     currentpage+=i1;
 	     loadpage(currentpage, filename, &locationsnumber);
+         drawscreen(currentpage);
 	    }
        break;
 	   case FINDREFERENCE:
@@ -201,6 +215,7 @@ int main(int argc, char *argv[])
         else
          currentpage=opt;
 	    loadpage(currentpage, filename, &locationsnumber);
+        drawscreen(currentpage);
 	   break;
        case CYCLESCHEMES:
         scheme++;
@@ -215,14 +230,15 @@ int main(int argc, char *argv[])
 	   showmessage("turning page...");       
 	    --currentpage;
         loadpage(currentpage, filename, &locationsnumber);
+        drawscreen(currentpage);
        break;
 	   case PGDOWN:
 	   if (locationsnumber<MAXPAGEENTRIES) // last page not fully loaded
 	    break;
        locatecitymode=0;
 	   showmessage("turning page...");
-	   ++currentpage;
-	   loadpage(currentpage, filename, &locationsnumber);
+	   loadpage(currentpage+1, filename, &locationsnumber);
+       drawscreen(++currentpage);
       break;
       default:
 	  // nothing
@@ -283,15 +299,19 @@ int main(int argc, char *argv[])
 // load-reload page
 void loadpage(int pagenumber, char *filename, int *locationsnumber)
 {
-  int fd;
+  static int fd;
+  int nread;
   
-   if ((fd=open(filename, O_RDONLY))==-1)
-    exit(-1);
+   if (pagenumber<=currentpage || !isfdopen(fd))
+    if ((fd=open(filename, O_RDONLY))==-1)
+     exit(-1);
    showmessage("reading database...");
-   fastforwardfile(fd, pagenumber);
+   if (pagenumber>currentpage)
+    pagenumber-=currentpage;
+   nread=fastforwardfile(fd, pagenumber);
    *locationsnumber=readlocationentries(fd);
-   close(fd);
-   drawscreen(pagenumber);
+   if (!nread)
+    close(fd);
    refresh();
 }
 
@@ -670,3 +690,4 @@ void showusage()
   printf(" -s\t\tseconds off, default on\n -c\t\t12 hour clock, default 24hours\n -d\t\tdo not apply daylight savings\n -h<number>\tcolor scheme [1..%d]\n     --help\tdisplay this help\n\nDistributed under the GNU Public licence.\n", schemes);
   exit (-1);
 }
+
