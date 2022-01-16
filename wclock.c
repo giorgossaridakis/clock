@@ -305,7 +305,6 @@ void loadpage(int pagenumber, char *filename, int *locationsnumber)
    if (pagenumber<=currentpage || !isfdopen(fd))
     if ((fd=open(filename, O_RDONLY))==-1)
      exit(-1);
-   showmessage("reading database...");
    if (pagenumber>currentpage)
     pagenumber-=currentpage;
    nread=fastforwardfile(fd, pagenumber);
