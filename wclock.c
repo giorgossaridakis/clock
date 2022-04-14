@@ -12,7 +12,7 @@
 #include <sys/ioctl.h>
 
 // constants
-#define version 9.05
+#define version 9.06
 #define MAXPAGEENTRIES 63
 #define MAXLINE 80
 #define NAME 25
@@ -40,7 +40,7 @@ typedef struct {
   char Time[NAME]; } Location;
 Location locations[MAXPAGEENTRIES];
 
-ui secondson=1, clock24=1, applydst=1, scheme=1;
+ui secondson=1, clock24=1, scheme=1, applydst=1, mydstCorrection=1;
 double mylocalOffset=-999;
 int alllocationsnumber=0, currentpage=1, totalpages=0, locatecitymode=0;
 char *filename;
@@ -142,6 +142,9 @@ int main(int argc, char *argv[])
      if ((readfileentry(i1, line)==0))
       break;
      mylocalOffset=atof(line);
+    if ((readfileentry(i1, line)==0))
+     break;
+     mydstCorrection=atof(line);
     }
    }
    alllocationsnumber/=3;
@@ -158,6 +161,7 @@ int main(int argc, char *argv[])
       if (c==INITIALIZE+1) {
        if (mylocalOffset==-999) {
         mylocalOffset=locations[0].localOffset;
+        mydstCorrection=locations[0].dstCorrection;
        }
        loadpage(currentpage, filename, &locationsnumber);
        if (optind<argc) {
@@ -197,7 +201,7 @@ int main(int argc, char *argv[])
 	    clock24=(clock24) ? 0 : 1;
        break;
        case APPLYDST:
-        applydst=(applydst) ? 0 : 1;
+        applydst = (applydst) ? 0 : 1;
         loadpage(currentpage, filename, &locationsnumber);
        break;
 	   case FINDPOINT:
@@ -305,6 +309,7 @@ void loadpage(int pagenumber, char *filename, int *locationsnumber)
    if (pagenumber<=currentpage || !isfdopen(fd))
     if ((fd=open(filename, O_RDONLY))==-1)
      exit(-1);
+   showmessage("reading database...");
    if (pagenumber>currentpage)
     pagenumber-=currentpage;
    nread=fastforwardfile(fd, pagenumber);
@@ -337,7 +342,7 @@ int readlocationentries(int fd)
    if (applydst)
     for (i=0;i<locationsnumber;i++)
      if (mylocalOffset!=locations[i].localOffset)
-      locations[i].localOffset-=locations[i].dstCorrection;
+      locations[i].localOffset-=mydstCorrection;
    
 
  return locationsnumber;
