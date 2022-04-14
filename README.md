@@ -5,7 +5,7 @@ wclock.c is a world clock for the ncurses terminal.
 
 it needs to locate a .wclock file in your root directory with format:
 
- city_name GMT_offset DST_correction_in_relation_to_your_location(first entry)
+ city_name GMT_offset DST_correction
  
  NewYorkCity -4 0
  
